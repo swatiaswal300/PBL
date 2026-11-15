@@ -1,0 +1,318 @@
+
+// ======================================================
+// MEMBER 3: GRAPH AND DIJKSTRA'S SHORTEST PATH
+// ======================================================
+
+struct PathResult {
+    vector<int> dist;
+    vector<int> parent;
+};
+
+class Graph {
+private:
+    string locations[MAX_LOCATIONS];
+
+    int distance[MAX_LOCATIONS][MAX_LOCATIONS];
+
+    int count;
+
+public:
+
+    Graph() {
+        count = 0;
+
+        for (int i = 0; i < MAX_LOCATIONS; i++) {
+            for (int j = 0; j < MAX_LOCATIONS; j++) {
+                distance[i][j] = (i == j) ? 0 : INF;
+            }
+        }
+
+        loadGraph();
+    }
+
+    int findLocation(string name) {
+        for (int i = 0; i < count; i++) {
+            if (locations[i] == name) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    void addLocation() {
+        if (count >= MAX_LOCATIONS) {
+            cout << "Maximum location limit reached.\n";
+            return;
+        }
+
+        string name = readString("Enter location name: ");
+
+        if (name.empty() || findLocation(name) != -1) {
+            cout << "Invalid or duplicate location.\n";
+            return;
+        }
+
+        locations[count] = name;
+        count++;
+
+        saveGraph();
+
+        cout << "Location added successfully!\n";
+    }
+
+    void displayLocations() {
+        if (count == 0) {
+            cout << "\nNo locations available.\n";
+            return;
+        }
+
+        cout << "\n========== LOCATIONS ==========\n";
+
+        for (int i = 0; i < count; i++) {
+            cout << i << " : " << locations[i] << "\n";
+        }
+    }
+
+    void addRoad() {
+        if (count < 2) {
+            cout << "Add at least two locations first.\n";
+            return;
+        }
+
+        string source = readString("Enter starting location: ");
+        string destination = readString("Enter destination location: ");
+
+        int u = findLocation(source);
+        int v = findLocation(destination);
+
+        if (u == -1 || v == -1 || u == v) {
+            cout << "Invalid locations.\n";
+            return;
+        }
+
+        int weight = readInt("Enter road distance: ");
+
+        if (weight <= 0) {
+            cout << "Distance must be positive.\n";
+            return;
+        }
+
+        // Undirected weighted graph.
+        distance[u][v] = weight;
+        distance[v][u] = weight;
+
+        saveGraph();
+
+        cout << "Road added successfully!\n";
+    }
+
+    void displayRoads() {
+        cout << "\n========== ROAD CONNECTIONS ==========\n";
+
+        bool found = false;
+
+        for (int i = 0; i < count; i++) {
+            for (int j = i + 1; j < count; j++) {
+                if (distance[i][j] != INF) {
+                    cout << locations[i] << " <--> "
+                         << locations[j]
+                         << " : " << distance[i][j] << "\n";
+
+                    found = true;
+                }
+            }
+        }
+
+        if (!found) {
+            cout << "No roads have been added.\n";
+        }
+    }
+
+    // DIJKSTRA'S ALGORITHM
+
+    PathResult dijkstra(int source) {
+        PathResult result;
+
+        result.dist.assign(count, INF);
+        result.parent.assign(count, -1);
+
+        vector<bool> visited(count, false);
+
+        result.dist[source] = 0;
+
+        for (int i = 0; i < count; i++) {
+            int u = -1;
+
+            // Find the unvisited vertex with minimum distance.
+            for (int j = 0; j < count; j++) {
+                if (!visited[j] &&
+                    (u == -1 ||
+                     result.dist[j] < result.dist[u])) {
+
+                    u = j;
+                }
+            }
+
+            // Stop if no more reachable vertices exist.
+            if (u == -1 || result.dist[u] == INF) {
+                break;
+            }
+
+            visited[u] = true;
+
+            // Update distances of adjacent vertices.
+            for (int v = 0; v < count; v++) {
+                if (!visited[v] &&
+                    distance[u][v] != INF &&
+                    result.dist[u] <= INF - distance[u][v] &&
+                    result.dist[u] + distance[u][v] < result.dist[v]) {
+
+                    result.dist[v] =
+                        result.dist[u] + distance[u][v];
+
+                    result.parent[v] = u;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // Display the complete shortest route.
+
+    void displayPath(int destination,
+                     const vector<int>& parent) {
+
+        vector<int> path;
+
+        int current = destination;
+
+        while (current != -1) {
+            path.push_back(current);
+            current = parent[current];
+        }
+
+        cout << "Route: ";
+
+        for (int i = (int)path.size() - 1; i >= 0; i--) {
+            cout << locations[path[i]];
+
+            if (i != 0) {
+                cout << " -> ";
+            }
+        }
+
+        cout << "\n";
+    }
+
+    void displayShortestDistances() {
+        if (count == 0) {
+            cout << "No locations available.\n";
+            return;
+        }
+
+        string sourceName = readString("Enter source location: ");
+
+        int source = findLocation(sourceName);
+
+        if (source == -1) {
+            cout << "Source location not found.\n";
+            return;
+        }
+
+        PathResult result = dijkstra(source);
+
+        cout << "\n========== SHORTEST DISTANCES ==========\n";
+
+        for (int i = 0; i < count; i++) {
+            cout << sourceName << " -> " << locations[i] << " : ";
+
+            if (result.dist[i] == INF) {
+                cout << "Unreachable\n";
+            }
+            else {
+                cout << result.dist[i] << "\n";
+
+                if (i != source) {
+                    displayPath(i, result.parent);
+                }
+            }
+        }
+    }
+
+    void saveGraph() {
+        ofstream locationFile("locations.txt");
+
+        for (int i = 0; i < count; i++) {
+            locationFile << locations[i] << "\n";
+        }
+
+        locationFile.close();
+
+        ofstream roadFile("roads.txt");
+
+        for (int i = 0; i < count; i++) {
+            for (int j = i + 1; j < count; j++) {
+                if (distance[i][j] != INF) {
+                    roadFile << i << "|"
+                             << j << "|"
+                             << distance[i][j] << "\n";
+                }
+            }
+        }
+
+        roadFile.close();
+    }
+
+    void loadGraph() {
+        ifstream locationFile("locations.txt");
+
+        if (locationFile.is_open()) {
+            string name;
+
+            while (getline(locationFile, name)) {
+                if (count < MAX_LOCATIONS && !name.empty()) {
+                    locations[count++] = name;
+                }
+            }
+
+            locationFile.close();
+        }
+
+        ifstream roadFile("roads.txt");
+
+        if (roadFile.is_open()) {
+            string line;
+
+            while (getline(roadFile, line)) {
+                stringstream ss(line);
+
+                string a, b, w;
+
+                getline(ss, a, '|');
+                getline(ss, b, '|');
+                getline(ss, w, '|');
+
+                try {
+                    int u = stoi(a);
+                    int v = stoi(b);
+                    int weight = stoi(w);
+
+                    if (u >= 0 && u < count &&
+                        v >= 0 && v < count &&
+                        u != v && weight > 0) {
+
+                        distance[u][v] = weight;
+                        distance[v][u] = weight;
+                    }
+                }
+                catch (...) {
+                    cout << "Skipping an invalid road record.\n";
+                }
+            }
+
+            roadFile.close();
+        }
+    }
+};
